@@ -78,9 +78,9 @@ model$add_constraint(size[k] <= max_size, k = 1:K)
 
 Some notes:
 
-  - I did test a formulation which orders the subsets by size in or
-    break symmetries. This lead to wors computational results compared
-    to the model above.
+  - I did test a formulation which orders the subsets by size to break
+    symmetries. This leads to worse computational results compared to
+    the model above. Maybe for larger numbers of \(K\) this makes sense.
   - However I do need to run a full computational study with a larger
     number of samples to make any claims.
   - Once I have a larger testset I will also test CBC.
@@ -288,11 +288,10 @@ result <- solve_partitioning_problem(I, K)
 #> + 21449: >>>>>   1.450000000e+02 >=   0.000000000e+00 100.0% (6005; 3428)
 #> + 21537: >>>>>   1.430000000e+02 >=   0.000000000e+00 100.0% (6029; 3434)
 #> + 24736: >>>>>   1.230000000e+02 >=   0.000000000e+00 100.0% (6991; 3492)
-#> + 32249: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (8265; 5727)
-#> + 47686: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (12563; 5969)
-#> + 60381: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (15615; 6179)
-#> + 67796: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (18360; 6394)
-#> + 68995: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (18745; 6408)
+#> + 36834: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (9465; 5807)
+#> + 39650: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (10360; 5848)
+#> + 45469: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (11939; 5933)
+#> + 53560: mip =   1.230000000e+02 >=   0.000000000e+00 100.0% (13921; 6034)
 #> TIME LIMIT EXCEEDED; SEARCH TERMINATED
 #> <!SOLVER MSG> ----
 ```

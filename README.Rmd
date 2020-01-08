@@ -85,7 +85,7 @@ model$add_constraint(size[k] <= max_size, k = 1:K)
 
 Some notes:
 
-* I did test a formulation which orders the subsets by size in or break symmetries. This lead to wors computational results compared to the model above.
+* I did test a formulation which orders the subsets by size to break symmetries. This leads to worse computational results compared to the model above. Maybe for larger numbers of $K$ this makes sense.
 * However I do need to run a full computational study with a larger number of samples to make any claims.
 * Once I have a larger testset I will also test CBC.
 * This needs to be compared with the greedy heuristic implemented by Noam Ross.
