@@ -1,0 +1,199 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+# Multi-way-number-partitioning
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+## Introduction
+
+The multi-way number partitioning problem tries to partition the elements of a finite set $I$ of integers into $K > 0$ mutually exclusive subsets $I_k$ such that their sum is as close together as possible. More formally: let $S_k = \sum_{i \in I_k}i$, then the goal is to minimize $\max_{k \in K}S_k - \min_{k \in K}S_k$ [ref](https://en.wikipedia.org/wiki/Partition_problem).
+
+## Mixed-integer programming model
+
+One way to solve such a problem is to formulate it as a mixed-integer linear program.
+
+```{r, echo=FALSE}
+library(ROI.plugin.glpk)
+library(rmpk)
+model <- MIPModel(ROI_solver("glpk"))
+K <- 4
+n_I <- 10
+I <- integer(n_I)
+```
+
+### Variables
+
+For each element $i$ and $k$ $x_{i,k}$ is 1 if element $i$ is part of set $S_k$.
+```{r}
+x <- model$add_variable(
+  i = 1:n_I,
+  k = 1:K,
+  type = "integer",
+  lb = 0,
+  ub = 1
+)
+```
+
+Then we need three more variables to keep track of the size of the subsets.
+
+```{r}
+size <- model$add_variable(k = 1:K)
+max_size <- model$add_variable()
+min_size <- model$add_variable()
+```
+
+
+### Objective
+
+Minimize the difference between the largest and the smallest set.
+
+```{r}
+model$set_objective(max_size - min_size, sense = "min")
+```
+
+### Constraints
+
+Each element $i$ needs to part of exactly one subset $S_k$.
+```{r}
+model$add_constraint(
+  sum_expr(x[i, k], k = 1:K) == 1,
+  i = 1:n_I
+)
+```
+
+The following constraints model the correct size of each subset and define the correct values of the minimum and maximum subset values.
+
+```{r}
+model$add_constraint(
+  sum_expr(x[i, k] * I[i], i = 1:n_I) == size[k],
+  k = 1:K
+)
+model$add_constraint(size[k] >= min_size, k = 1:K)
+model$add_constraint(size[k] <= max_size, k = 1:K)
+```
+
+Some notes:
+
+* I did test a formulation which orders the subsets by size in or break symmetries. This lead to wors computational results compared to the model above.
+* However I do need to run a full computational study with a larger number of samples to make any claims.
+* Once I have a larger testset I will also test CBC.
+* This needs to be compared with the greedy heuristic implemented by Noam Ross.
+
+### Computational results
+
+We use *GLPK* as a solver and see how far we can go.
+
+#### The implementation
+
+```{r}
+library(rmpk)
+library(ROI.plugin.glpk)
+solve_partitioning_problem <- function(I, K, time_limit_sec = 30) {
+  n_I <- length(I)
+  model <- MIPModel(ROI_solver("glpk", control = list(verbose = TRUE, presolve = TRUE, tm_limit = time_limit_sec * 1000)))
+  x <- model$add_variable(
+    i = 1:n_I,
+    k = 1:K,
+    type = "integer",
+    lb = 0,
+    ub = 1
+  )
+  size <- model$add_variable(k = 1:K)
+  max_size <- model$add_variable()
+  min_size <- model$add_variable()
+  model$set_objective(max_size - min_size, sense = "min")
+  model$add_constraint(
+    sum_expr(x[i, k], k = 1:K) == 1,
+    i = 1:n_I
+  )
+  model$add_constraint(
+    sum_expr(x[i, k] * I[i], i = 1:n_I) == size[k],
+    k = 1:K
+  )
+  model$add_constraint(size[k] >= min_size, k = 1:K)
+  model$add_constraint(size[k] <= max_size, k = 1:K)
+  model$optimize()
+  list(model = model, solution = model$get_variable_value(x[i, k]))
+}
+```
+
+We also need a function score a solution and to display it.
+
+```{r}
+suppressPackageStartupMessages(library(dplyr, warn.conflicts = FALSE))
+display <- function(result, I) {
+  solution <- result$solution
+  solution %>% 
+    filter(value == 1) %>% 
+    group_by(k) %>% 
+    summarise(sum = sum(I[i]), n = n())
+}
+score <- function(result, I) {
+  subset_sum <- display(result, I)$sum
+  max(subset_sum) - min(subset_sum)
+}
+```
+
+#### Small example
+
+```{r}
+set.seed(42)
+K <- 4
+n_I <- 10
+I <- sample.int(n_I, size = 10000, replace = TRUE, prob = runif(n_I))
+I <- sort(as.integer(table(I)), decreasing = TRUE)
+```
+
+
+```{r}
+result <- solve_partitioning_problem(I, K)
+```
+
+```{r}
+stopifnot(result$model$termination_status() == rmpk::TERMINATION_STATUS$SUCCESS)
+```
+
+Let's check the score. Note: this should be the same value as the final upper bound in the log file.
+```{r}
+score(result, I)
+```
+
+```{r}
+stopifnot(score(result, I) == result$model$objective_value())
+```
+
+```{r}
+display(result, I)
+```
+
+#### Small K, large I
+
+```{r}
+set.seed(42)
+K <- 4
+n_I <- 200
+I <- sample.int(n_I, size = 3e6, replace = TRUE, prob = runif(n_I))
+I <- sort(as.integer(table(I)), decreasing = TRUE)
+```
+
+
+```{r}
+result <- solve_partitioning_problem(I, K)
+```
+
+After 30 seconds the score is: `r result$model$objective_value()`
+
+```{r}
+display(result, I)
+```
